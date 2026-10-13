@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Mini-Forum (L1)
 
 Skalowalna i bezpieczna platforma wymiany informacji - etap L1: aplikacja bazowa.
@@ -26,3 +27,7 @@ Aplikacja: http://localhost:8000, dokumentacja API: http://localhost:8000/docs
 ## Zespół
 
 Przemysław Babij, Mateusz Nycz, Bartosz Wzorek, Piotr Przychodzeń - grupa 5
+=======
+# Forum_bez.web
+Projekt na laboratoria z bezpieczeństwa serwerów i aplikacji webowych.
+>>>>>>> 4daa1035ea37915d17c895b40b1ef27724b625ce
