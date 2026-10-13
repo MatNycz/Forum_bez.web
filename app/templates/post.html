@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block content %}
+<article class="card">
+  <h1>{{ post.title }}</h1>
+  <p class="meta">{{ post.category }} · {{ post.author.username }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+  <div class="body">{{ post.content }}</div>
+</article>
+
+<h2>Komentarze ({{ post.comments|length }})</h2>
+{% for c in post.comments %}
+  <div class="card">
+    <p class="meta">{{ c.author.username }} · {{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    <div class="body">{{ c.content }}</div>
+  </div>
+{% else %}
+  <p>Brak komentarzy.</p>
+{% endfor %}
+
+{% if user %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/posts/{{ post.id }}/comments" class="stack">
+    <label>Dodaj komentarz <textarea name="content" rows="4" required maxlength="2000"></textarea></label>
+    <button type="submit">Wyślij</button>
+  </form>
+{% else %}
+  <p><a href="/login">Zaloguj się</a>, aby komentować.</p>
+{% endif %}
+{% endblock %}

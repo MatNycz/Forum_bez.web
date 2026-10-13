@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="get" action="/" class="search">
+  <input type="text" name="q" value="{{ q }}" placeholder="Szukaj w wątkach" maxlength="100">
+  <select name="category">
+    <option value="">Wszystkie kategorie</option>
+    {% for c in categories %}
+      <option value="{{ c }}" {% if c == selected %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Szukaj</button>
+</form>
+
+{% for post in posts %}
+  <article class="card">
+    <h2><a href="/posts/{{ post.id }}">{{ post.title }}</a></h2>
+    <p class="meta">{{ post.category }} · {{ post.author.username }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }} · komentarze: {{ post.comments|length }}</p>
+  </article>
+{% else %}
+  <p>Brak wpisów.</p>
+{% endfor %}
+{% endblock %}

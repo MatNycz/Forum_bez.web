@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mini-Forum{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">Mini-Forum</a>
+    <nav>
+      {% if user %}
+        <span>Zalogowany: <strong>{{ user.username }}</strong></span>
+        <a href="/posts/new">Nowy wpis</a>
+        <form action="/logout" method="post" class="inline"><button type="submit">Wyloguj</button></form>
+      {% else %}
+        <a href="/login">Logowanie</a>
+        <a href="/register">Rejestracja</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

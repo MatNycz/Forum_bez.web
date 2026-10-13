@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Rejestracja{% endblock %}
+{% block content %}
+<h1>Rejestracja</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/register" class="stack">
+  <label>Nazwa użytkownika <input type="text" name="username" required minlength="3" maxlength="50"></label>
+  <label>E-mail <input type="email" name="email" required maxlength="100"></label>
+  <label>Hasło (min. 8 znaków) <input type="password" name="password" required minlength="8"></label>
+  <button type="submit">Załóż konto</button>
+</form>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Nowy wpis{% endblock %}
+{% block content %}
+<h1>Nowy wpis</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/posts/new" class="stack">
+  <label>Tytuł <input type="text" name="title" required maxlength="150"></label>
+  <label>Kategoria
+    <select name="category" required>
+      {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Treść <textarea name="content" rows="8" required maxlength="10000"></textarea></label>
+  <button type="submit">Opublikuj</button>
+</form>
+{% endblock %}

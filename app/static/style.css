@@ -1,0 +1,19 @@
+body { font-family: system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1f2430; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: #1f2430; color: #fff; }
+header a { color: #fff; text-decoration: none; margin-left: 16px; }
+.brand { font-weight: 700; font-size: 1.2rem; margin-left: 0; }
+main { max-width: 760px; margin: 24px auto; padding: 0 16px; }
+.card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.card h1, .card h2 { margin: 0 0 6px; }
+.card a { color: #1f4fd8; text-decoration: none; }
+.meta { color: #6b7280; font-size: .85rem; margin: 0; }
+.body { white-space: pre-wrap; margin-top: 12px; }
+.stack { display: flex; flex-direction: column; gap: 12px; max-width: 480px; }
+.stack label { display: flex; flex-direction: column; gap: 4px; }
+.search { display: flex; gap: 8px; margin-bottom: 16px; }
+.search input { flex: 1; }
+input, textarea, select, button { font: inherit; padding: 8px; border: 1px solid #c5c9d3; border-radius: 6px; }
+button { background: #1f4fd8; color: #fff; border: none; cursor: pointer; }
+form.inline { display: inline; margin-left: 16px; }
+form.inline button { background: transparent; border: 1px solid #fff; padding: 4px 10px; }
+.error { background: #fdecea; color: #b42318; padding: 8px 12px; border-radius: 6px; }
