@@ -17,3 +17,14 @@ button { background: #1f4fd8; color: #fff; border: none; cursor: pointer; }
 form.inline { display: inline; margin-left: 16px; }
 form.inline button { background: transparent; border: 1px solid #fff; padding: 4px 10px; }
 .error { background: #fdecea; color: #b42318; padding: 8px 12px; border-radius: 6px; }
+.like-form { display: inline-block; margin: 10px 8px 0 0; }
+button.danger { background: #b42318; padding: 4px 12px; }
+.ok { background: #e6f4ea; color: #137333; padding: 8px 12px; border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; font-size: .9rem; }
+td form { display: inline; }
+.badge { padding: 2px 8px; border-radius: 10px; font-size: .75rem; background: #e8ebf2; }
+.badge.blocked { background: #fdecea; color: #b42318; }
+button.like { background: #e8ebf2; color: #1f2430; padding: 4px 12px; }
+button.like.liked { background: #1f4fd8; color: #fff; }
+button.like:disabled { opacity: .6; cursor: not-allowed; }

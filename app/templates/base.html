@@ -11,8 +11,10 @@
     <a class="brand" href="/">Mini-Forum</a>
     <nav>
       {% if user %}
-        <span>Zalogowany: <strong>{{ user.username }}</strong></span>
+        <span>Zalogowany: <strong>{{ user.username }}</strong>{% if user.role == 'admin' %} (admin){% endif %}</span>
         <a href="/posts/new">Nowy wpis</a>
+        <a href="/profile">Profil</a>
+        {% if user.role == 'admin' %}<a href="/admin/users">Użytkownicy</a>{% endif %}
         <form action="/logout" method="post" class="inline"><button type="submit">Wyloguj</button></form>
       {% else %}
         <a href="/login">Logowanie</a>

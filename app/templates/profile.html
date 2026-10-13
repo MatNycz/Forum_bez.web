@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Mój profil{% endblock %}
+{% block content %}
+<h1>Mój profil</h1>
+{% if message %}<p class="ok">{{ message }}</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<div class="card">
+  <p><strong>Nazwa użytkownika:</strong> {{ user.username }}</p>
+  <p><strong>E-mail:</strong> {{ user.email }}</p>
+  <p><strong>Rola:</strong> {{ user.role }}</p>
+  <p><strong>Konto założone:</strong> {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+  <p><strong>Wpisy:</strong> {{ posts_count }} · <strong>Komentarze:</strong> {{ comments_count }}</p>
+</div>
+
+<h2>Zmiana hasła</h2>
+<form method="post" action="/profile/password" class="stack">
+  <label>Obecne hasło <input type="password" name="current_password" required></label>
+  <label>Nowe hasło (min. 8 znaków) <input type="password" name="new_password" required minlength="8"></label>
+  <button type="submit">Zmień hasło</button>
+</form>
+
+<h2>Usunięcie konta</h2>
+<p>Usunie to konto oraz wszystkie Twoje wpisy, komentarze i lajki. Tej operacji nie można cofnąć.</p>
+<form method="post" action="/profile/delete" class="stack">
+  <label>Podaj hasło, aby potwierdzić <input type="password" name="current_password" required></label>
+  <button type="submit" class="danger">Usuń moje konto</button>
+</form>
+{% endblock %}

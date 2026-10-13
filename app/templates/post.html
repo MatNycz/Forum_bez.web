@@ -5,6 +5,14 @@
   <h1>{{ post.title }}</h1>
   <p class="meta">{{ post.category }} · {{ post.author.username }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
   <div class="body">{{ post.content }}</div>
+  {% if user and (user.role == 'admin' or user.id == post.user_id) %}
+  <form method="post" action="/posts/{{ post.id }}/delete" class="like-form">
+    <button type="submit" class="danger">Usuń wpis</button>
+  </form>
+  {% endif %}
+  <form method="post" action="/posts/{{ post.id }}/like" class="like-form">
+    <button type="submit" class="like {% if liked_post %}liked{% endif %}" {% if not user %}disabled title="Zaloguj się, aby lajkować"{% endif %}>👍 {{ post.likes|length }}</button>
+  </form>
 </article>
 
 <h2>Komentarze ({{ post.comments|length }})</h2>
@@ -12,6 +20,14 @@
   <div class="card">
     <p class="meta">{{ c.author.username }} · {{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
     <div class="body">{{ c.content }}</div>
+    {% if user and (user.role == 'admin' or user.id == c.user_id) %}
+    <form method="post" action="/comments/{{ c.id }}/delete" class="like-form">
+      <button type="submit" class="danger">Usuń</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/comments/{{ c.id }}/like" class="like-form">
+      <button type="submit" class="like {% if c.id in liked_comments %}liked{% endif %}" {% if not user %}disabled title="Zaloguj się, aby lajkować"{% endif %}>👍 {{ c.likes|length }}</button>
+    </form>
   </div>
 {% else %}
   <p>Brak komentarzy.</p>

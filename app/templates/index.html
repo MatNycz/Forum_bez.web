@@ -14,7 +14,7 @@
 {% for post in posts %}
   <article class="card">
     <h2><a href="/posts/{{ post.id }}">{{ post.title }}</a></h2>
-    <p class="meta">{{ post.category }} · {{ post.author.username }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }} · komentarze: {{ post.comments|length }}</p>
+    <p class="meta">{{ post.category }} · {{ post.author.username }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }} · 👍 {{ post.likes|length }} · komentarze: {{ post.comments|length }}</p>
   </article>
 {% else %}
   <p>Brak wpisów.</p>

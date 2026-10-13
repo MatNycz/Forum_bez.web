@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Użytkownicy{% endblock %}
+{% block content %}
+<h1>Użytkownicy</h1>
+<table>
+  <thead>
+    <tr><th>ID</th><th>Nazwa</th><th>E-mail</th><th>Rola</th><th>Status</th><th>Wpisy</th><th>Komentarze</th><th>Akcje</th></tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>{{ u.username }}</td>
+      <td>{{ u.email }}</td>
+      <td>{{ u.role }}</td>
+      <td>{% if u.is_blocked %}<span class="badge blocked">zablokowany</span>{% else %}<span class="badge">aktywny</span>{% endif %}</td>
+      <td>{{ u.posts|length }}</td>
+      <td>{{ u.comments|length }}</td>
+      <td>
+        {% if u.role != 'admin' %}
+        <form method="post" action="/admin/users/{{ u.id }}/block">
+          <button type="submit">{% if u.is_blocked %}Odblokuj{% else %}Zablokuj{% endif %}</button>
+        </form>
+        <form method="post" action="/admin/users/{{ u.id }}/delete">
+          <button type="submit" class="danger">Usuń</button>
+        </form>
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
