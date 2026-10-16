@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    container_name: forum-db
     environment:
       POSTGRES_USER: forum
       POSTGRES_PASSWORD: forum
@@ -9,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forum -d forum"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
 volumes:
   pgdata:

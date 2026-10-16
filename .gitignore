@@ -6,4 +6,3 @@ venv/
 .idea/
 .vscode/
 pgdata/
-*.db
