@@ -7,12 +7,13 @@ os.environ["SECRET_KEY"] = "ci-test-secret-key-12345"
 
 from app.main import app
 
-client = TestClient(app)
-
 def test_read_main():
-    response = client.get("/")
-    assert response.status_code == 200
+    # Użycie bloku 'with' wymusza uruchomienie zdarzeń 'startup' (tworzenie tabel w bazie)
+    with TestClient(app) as client:
+        response = client.get("/")
+        assert response.status_code == 200
 
 def test_swagger_docs():
-    response = client.get("/docs")
-    assert response.status_code == 200
+    with TestClient(app) as client:
+        response = client.get("/docs")
+        assert response.status_code == 200
