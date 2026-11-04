@@ -32,7 +32,7 @@ jobs:
 
       - name: Uruchomienie testow jednostkowych (pytest)
         run: |
-          pytest tests/
+          PYTHONPATH=. pytest tests/
 
   deploy-to-azure:
     name: 2. CD - Wdrozenie do Azure
