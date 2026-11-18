@@ -21,11 +21,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. SAST - Analiza statyczna kodu (Bandit)
-      - name: Run Bandit (SAST)
-        uses: pyCQA/bandit@main
+      # 1. SAST - Analiza statyczna kodu (Bandit przez pip)
+      - name: Set up Python for Bandit
+        uses: actions/setup-python@v5
         with:
-          args: "-r app/ -ll"
+          python-version: '3.10'
+
+      - name: Run Bandit (SAST)
+        run: |
+          pip install bandit
+          bandit -r app/ -ll
 
       # 2. Skanowanie Sekretów (Gitleaks)
       - name: Gitleaks Scan
@@ -35,11 +40,6 @@ jobs:
           GITLEAKS_LICENSE: ""
 
       # 3. Skanowanie Zależności / SCA (pip-audit)
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
       - name: Install dependencies for audit
         run: |
           python -m pip install --upgrade pip
