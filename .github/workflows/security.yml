@@ -23,7 +23,7 @@ jobs:
 
       # 1. SAST - Analiza statyczna kodu (Bandit)
       - name: Run Bandit (SAST)
-        uses: pyCQA/bandit@v1.7.5
+        uses: pyCQA/bandit@main
         with:
           args: "-r app/ -ll"
 
