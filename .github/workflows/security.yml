@@ -58,5 +58,5 @@ jobs:
           image-ref: 'forum-app:latest'
           format: 'table'
           exit-code: '0'
-          vuln-type: 'os,package'
+          vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
