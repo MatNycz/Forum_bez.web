@@ -10,53 +10,117 @@ permissions:
   contents: read
 
 jobs:
-  security:
-    name: Security Scan
+  # 1. SAST
+  sast:
+    name: SAST (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Bandit
+        run: pip install bandit
+      - name: Pelny raport (wszystkie severity, nie blokuje)
+        run: bandit -r app/ -f txt -o bandit-report.txt --exit-zero
+      - name: Gate (pada na MEDIUM i HIGH)
+        run: bandit -r app/ -ll
+      - name: Raport do artefaktow
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.txt
+
+  # 2. Sekrety
+  secrets:
+    name: Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # cala historia, nie tylko ostatni commit
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 3. SCA
+  sca:
+    name: SCA (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  # 4. Obraz Dockera
+  image:
+    name: Image scan (Trivy)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
-      actions: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # 1. SAST - Analiza statyczna kodu (Bandit przez pip)
-      - name: Set up Python for Bandit
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Run Bandit (SAST)
-        run: |
-          pip install bandit
-          bandit -r app/ -ll
-
-      # 2. Skanowanie Sekretów (Gitleaks)
-      - name: Gitleaks Scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ""
-
-      # 3. Skanowanie Zależności / SCA (pip-audit)
-      - name: Install dependencies for audit
-        run: |
-          python -m pip install --upgrade pip
-          pip install pip-audit
-
-      - name: Run pip-audit (SCA)
-        run: pip-audit -r requirements.txt
-
-      # 4. Skanowanie Obrazu Dockera (Trivy)
-      - name: Build Docker image
+      - uses: actions/checkout@v4
+      - name: Build image
         run: docker build -t forum-app:latest .
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      # raport SARIF do zakladki Security (nie blokuje)
+      - name: Trivy -> SARIF
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'forum-app:latest'
+          format: 'sarif'
+          output: 'trivy.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+
+      # gate: pada na podatnosciach, ktore maja poprawke
+      - name: Trivy gate
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'forum-app:latest'
           format: 'table'
-          exit-code: '0'
-          vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+
+  # 5. DAST
+  dast:
+    name: DAST (OWASP ZAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t forum-app:latest .
+      - name: Start app (SQLite, tylko na potrzeby testu)
+        run: |
+          docker run -d --name forum -p 8000:8000 \
+            -e DATABASE_URL=sqlite:///./forum.db \
+            -e SECRET_KEY=ci-test-secret \
+            forum-app:latest
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:8000/ >/dev/null && exit 0
+            sleep 2
+          done
+          docker logs forum
+          exit 1
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:8000'
+          fail_action: false        # zmien na true, gdy poprawisz naglowki
+          allow_issue_writing: false
+      - name: Stop app
+        if: always()
+        run: docker rm -f forum || true
