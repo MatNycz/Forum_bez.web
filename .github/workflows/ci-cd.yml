@@ -27,7 +27,7 @@ jobs:
     name: 1a. Skan sekretów (Gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
@@ -42,8 +42,8 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install "bandit[sarif]" pip-audit
@@ -69,7 +69,7 @@ jobs:
 
       - name: Upload raportu pip-audit
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pip-audit-report
           path: pip-audit.md
@@ -79,8 +79,8 @@ jobs:
     name: 1c. Testy (pytest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: |
@@ -99,12 +99,12 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build obrazu
         run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
 
-      - name: Trivy - raport SARIF (HIGH + CRITICAL)
+      - name: Trivy - raport SARIF (MEDIUM + HIGH + CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
@@ -113,7 +113,7 @@ jobs:
           exit-code: '0'
           ignore-unfixed: true
           vuln-type: os,library
-          severity: CRITICAL,HIGH
+          severity: CRITICAL,HIGH,MEDIUM
           limit-severities-for-sarif: true
 
       - name: Upload Trivy do Code scanning
@@ -156,7 +156,7 @@ jobs:
     needs: build-scan-deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: chmod a+w .
 
       - name: ZAP baseline scan
@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload raportu ZAP
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: zap-report
           path: |
