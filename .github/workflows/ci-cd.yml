@@ -104,23 +104,41 @@ jobs:
       - name: Build obrazu
         run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
 
-      - name: Trivy - raport SARIF (MEDIUM + HIGH + CRITICAL)
+      - name: Trivy - raport SARIF (HIGH + CRITICAL, także bez łatki)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           format: sarif
-          output: trivy.sarif
+          output: trivy-high.sarif
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy HIGH/CRITICAL do Code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-high.sarif
+          category: trivy
+
+      - name: Trivy - raport SARIF (MEDIUM z łatką)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: sarif
+          output: trivy-medium.sarif
           exit-code: '0'
           ignore-unfixed: true
           vuln-type: os,library
-          severity: CRITICAL,HIGH,MEDIUM
+          severity: MEDIUM
           limit-severities-for-sarif: true
 
-      - name: Upload Trivy do Code scanning
+      - name: Upload Trivy MEDIUM do Code scanning
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: trivy.sarif
-          category: trivy
+          sarif_file: trivy-medium.sarif
+          category: trivy-medium
 
       - name: Trivy - bramka CRITICAL
         uses: aquasecurity/trivy-action@v0.36.0
