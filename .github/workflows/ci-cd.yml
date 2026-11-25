@@ -34,20 +34,45 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # SAST (Bandit) + SCA (pip-audit)
+  # SAST (Bandit -> Security tab) + SCA (pip-audit -> artefakt)
   sast-sca:
     name: 1b. SAST (Bandit) + SCA (pip-audit)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install bandit pip-audit
+      - run: pip install "bandit[sarif]" pip-audit
+
       - name: Bandit (SAST)
-        run: bandit -r app/ -ll -ii
+        run: bandit -r app/ -ll -ii -f sarif -o bandit.sarif
+
+      - name: Upload Bandit do Code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
       - name: pip-audit (SCA)
-        run: pip-audit -r requirements.txt
+        if: always()
+        run: |
+          set +e
+          pip-audit -r requirements.txt -f markdown -o pip-audit.md
+          rc=$?
+          cat pip-audit.md
+          exit $rc
+
+      - name: Upload raportu pip-audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit.md
 
   # Testy jednostkowe
   test:
@@ -63,7 +88,7 @@ jobs:
           pip install -r requirements.txt pytest httpx
       - run: PYTHONPATH=. pytest tests/
 
-  # Skan obrazu kontenera (Trivy) + wdrożenie (klucz w GitHub Secrets)
+  # Skan obrazu kontenera (Trivy -> Security tab) + wdrożenie (klucz w GitHub Secrets)
   build-scan-deploy:
     name: 2. Build, Trivy, wdrożenie do Azure
     needs: [secrets-scan, sast-sca, test]
@@ -72,23 +97,30 @@ jobs:
     environment: production
     permissions:
       contents: read
-    outputs:
-      app_url: ${{ steps.url.outputs.app_url }}
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Build obrazu
         run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
 
-      - name: Trivy - raport HIGH
+      - name: Trivy - raport SARIF (HIGH + CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
-          format: table
+          format: sarif
+          output: trivy.sarif
           exit-code: '0'
           ignore-unfixed: true
           vuln-type: os,library
-          severity: HIGH
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy do Code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
 
       - name: Trivy - bramka CRITICAL
         uses: aquasecurity/trivy-action@v0.36.0
@@ -118,25 +150,29 @@ jobs:
             --resource-group $AZURE_RESOURCE_GROUP \
             --image $IMAGE:${{ github.sha }}
 
-      - name: Adres aplikacji dla DAST
-        id: url
-        run: |
-          FQDN=$(az containerapp show -n $CONTAINER_APP_NAME -g $AZURE_RESOURCE_GROUP \
-            --query properties.configuration.ingress.fqdn -o tsv)
-          echo "Adres aplikacji: https://$FQDN"
-          echo "app_url=https://$FQDN" >> $GITHUB_OUTPUT
-
-  # DAST (OWASP ZAP)
+  # DAST (OWASP ZAP -> artefakt z raportem HTML)
   dast:
     name: 3. DAST (OWASP ZAP baseline)
     needs: build-scan-deploy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: chmod a+w .
+
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: ${{ secrets.APP_URL || needs.build-scan-deploy.outputs.app_url }}
+          target: ${{ secrets.APP_URL }}
           allow_issue_writing: false
           fail_action: false
           cmd_options: '-a'
+
+      - name: Upload raportu ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
