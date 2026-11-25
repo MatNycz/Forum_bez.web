@@ -63,7 +63,7 @@ jobs:
           pip install -r requirements.txt pytest httpx
       - run: PYTHONPATH=. pytest tests/
 
-  # Skan obrazu kontenera (Trivy) + wdrożenie (logowanie OIDC bez klucza)
+  # Skan obrazu kontenera (Trivy) + wdrożenie (klucz w GitHub Secrets)
   build-scan-deploy:
     name: 2. Build, Trivy, wdrożenie do Azure
     needs: [secrets-scan, sast-sca, test]
@@ -72,7 +72,6 @@ jobs:
     environment: production
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -99,12 +98,10 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL
 
-      - name: Logowanie do Azure (OIDC)
+      - name: Logowanie do Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Push do ACR
         run: |
