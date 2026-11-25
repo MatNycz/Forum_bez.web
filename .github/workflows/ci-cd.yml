@@ -136,7 +136,7 @@ jobs:
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: ${{ vars.APP_URL || needs.build-scan-deploy.outputs.app_url }}
+          target: ${{ secrets.APP_URL || needs.build-scan-deploy.outputs.app_url }}
           allow_issue_writing: false
           fail_action: false
           cmd_options: '-a'
