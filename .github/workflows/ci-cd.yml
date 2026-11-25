@@ -72,6 +72,8 @@ jobs:
     environment: production
     permissions:
       contents: read
+    outputs:
+      app_url: ${{ steps.url.outputs.app_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -116,6 +118,14 @@ jobs:
             --resource-group $AZURE_RESOURCE_GROUP \
             --image $IMAGE:${{ github.sha }}
 
+      - name: Adres aplikacji dla DAST
+        id: url
+        run: |
+          FQDN=$(az containerapp show -n $CONTAINER_APP_NAME -g $AZURE_RESOURCE_GROUP \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Adres aplikacji: https://$FQDN"
+          echo "app_url=https://$FQDN" >> $GITHUB_OUTPUT
+
   # DAST (OWASP ZAP)
   dast:
     name: 3. DAST (OWASP ZAP baseline)
@@ -126,7 +136,7 @@ jobs:
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: ${{ vars.APP_URL }}
+          target: ${{ vars.APP_URL || needs.build-scan-deploy.outputs.app_url }}
           allow_issue_writing: false
           fail_action: false
           cmd_options: '-a'
