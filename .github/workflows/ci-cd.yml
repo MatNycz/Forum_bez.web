@@ -1,64 +1,125 @@
-name: CI/CD Pipeline - MiniForum
+name: CI/CD + Security - MiniForum
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   AZURE_RESOURCE_GROUP: Forum-RG
   ACR_NAME: miniforumpwr2026
   CONTAINER_APP_NAME: miniforum-app
+  IMAGE: miniforumpwr2026.azurecr.io/miniforum-app
+  PYTHON_VERSION: "3.11"
 
 jobs:
-  build-and-test:
-    name: 1. CI - Testy automatyczne
+  # Skanowanie sekretów (Gitleaks)
+  secrets-scan:
+    name: 1a. Skan sekretów (Gitleaks)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Pobranie kodu z repozytorium
-        uses: actions/checkout@v4
-
-      - name: Konfiguracja Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
         with:
-          python-version: "3.11"
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Instalacja zaleznosci i narzedzi testowych
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest httpx
-
-      - name: Uruchomienie testow jednostkowych (pytest)
-        run: |
-          PYTHONPATH=. pytest tests/
-
-  deploy-to-azure:
-    name: 2. CD - Wdrozenie do Azure
-    needs: build-and-test
+  # SAST (Bandit) + SCA (pip-audit)
+  sast-sca:
+    name: 1b. SAST (Bandit) + SCA (pip-audit)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Pobranie kodu z repozytorium
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install bandit pip-audit
+      - name: Bandit (SAST)
+        run: bandit -r app/ -ll -ii
+      - name: pip-audit (SCA)
+        run: pip-audit -r requirements.txt
 
-      - name: Logowanie do Microsoft Azure
+  # Testy jednostkowe
+  test:
+    name: 1c. Testy (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest httpx
+      - run: PYTHONPATH=. pytest tests/
+
+  # Skan obrazu kontenera (Trivy) + wdrożenie (logowanie OIDC bez klucza)
+  build-scan-deploy:
+    name: 2. Build, Trivy, wdrożenie do Azure
+    needs: [secrets-scan, sast-sca, test]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build obrazu
+        run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+
+      - name: Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Logowanie do Azure (OIDC)
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Logowanie do rejestru ACR i budowa obrazu Docker
+      - name: Push do ACR
         run: |
-          az acr login --name ${{ env.ACR_NAME }}
-          docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:${{ github.sha }} \
-                       -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:latest .
-          docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:${{ github.sha }}
-          docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:latest
+          az acr login --name $ACR_NAME
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
 
-      - name: Aktualizacja usługi Azure Container Apps
+      - name: Aktualizacja Azure Container Apps
         run: |
           az containerapp update \
-            --name ${{ env.CONTAINER_APP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:${{ github.sha }}
+            --name $CONTAINER_APP_NAME \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --image $IMAGE:${{ github.sha }}
+
+  # DAST (OWASP ZAP)
+  dast:
+    name: 3. DAST (OWASP ZAP baseline)
+    needs: build-scan-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ vars.APP_URL }}
+          allow_issue_writing: false
+          fail_action: false
+          cmd_options: '-a'
