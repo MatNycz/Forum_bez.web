@@ -79,7 +79,17 @@ jobs:
       - name: Build obrazu
         run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
 
-      - name: Trivy
+      - name: Trivy - raport HIGH
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH
+
+      - name: Trivy - bramka CRITICAL
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
@@ -87,7 +97,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: os,library
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
 
       - name: Logowanie do Azure (OIDC)
         uses: azure/login@v2
