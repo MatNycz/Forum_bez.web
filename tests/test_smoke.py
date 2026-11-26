@@ -16,4 +16,4 @@ def test_read_main():
 def test_swagger_docs():
     with TestClient(app) as client:
         response = client.get("/docs")
-        assert response.status_code == 200
+        assert response.status_code == 404

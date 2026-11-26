@@ -2,6 +2,13 @@ import os
 import re
 from pathlib import Path
 
+import logging
+from urllib.parse import urlparse
+
+from fastapi.responses import PlainTextResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,7 +38,69 @@ CATEGORIES = [
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,50}$")
 
-app = FastAPI(title="Mini-Forum")
+ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
+
+app = FastAPI(
+    title="Mini-Forum",
+    docs_url="/docs" if ENABLE_DOCS else None,
+    redoc_url="/redoc" if ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_DOCS else None,
+)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none'"
+    )
+    return response
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+sec_log = logging.getLogger("security")
+
+
+def get_client_ip(request: Request) -> str:
+    """Pobiera prawdziwe IP klienta zza Cloudflare / Load Balancera."""
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+limiter = Limiter(key_func=get_client_ip)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.middleware("http")
+async def csrf_origin_check(request: Request, call_next):
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        origin = request.headers.get("origin")
+        host = request.headers.get("host")
+        if origin and host and urlparse(origin).netloc != host:
+            sec_log.warning(
+                "CSRF blocked | ip=%s path=%s origin=%s host=%s",
+                get_client_ip(request), request.url.path, origin, host,
+            )
+            return PlainTextResponse("CSRF check failed", status_code=403)
+    return await call_next(request)
+
+
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
@@ -142,6 +211,7 @@ def register_form(request: Request, user: User | None = Depends(get_current_user
 
 
 @app.post("/register")
+@limiter.limit("5/minute")
 def register(
     request: Request,
     username: str = Form(...),
@@ -182,6 +252,7 @@ def login_form(request: Request, user: User | None = Depends(get_current_user)):
 
 
 @app.post("/login")
+@limiter.limit("5/minute")
 def login(
     request: Request,
     username: str = Form(...),
@@ -189,17 +260,22 @@ def login(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user),
 ):
-    found = db.scalar(select(User).where(User.username == username.strip()))
+    ip = get_client_ip(request)
+    clean_username = username.strip()
+    found = db.scalar(select(User).where(User.username == clean_username))
     if found is None or not security.verify_password(password, found.password_hash):
+        sec_log.warning("LOGIN_FAILED | user=%s ip=%s", clean_username, ip)
         return render(
             request, "login.html", user, status_code=401,
             error="Nieprawidłowa nazwa użytkownika lub hasło.",
         )
     if found.is_blocked:
+        sec_log.warning("LOGIN_BLOCKED_USER | user=%s ip=%s", clean_username, ip)
         return render(
             request, "login.html", user, status_code=403,
             error="To konto zostało zablokowane przez administratora.",
         )
+    sec_log.info("LOGIN_SUCCESS | user=%s role=%s ip=%s", found.username, found.role, ip)
     response = RedirectResponse("/", status_code=303)
     response.set_cookie(
         security.COOKIE_NAME,
@@ -211,9 +287,10 @@ def login(
     )
     return response
 
-
 @app.post("/logout")
-def logout():
+def logout(request: Request, user: User | None = Depends(get_current_user)):
+    if user:
+        sec_log.info("LOGOUT | user=%s ip=%s", user.username, get_client_ip(request))
     response = RedirectResponse("/", status_code=303)
     response.delete_cookie(security.COOKIE_NAME)
     return response
