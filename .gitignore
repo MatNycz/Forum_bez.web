@@ -6,3 +6,6 @@ venv/
 .idea/
 .vscode/
 pgdata/
+forum.db
+venv/
+venv/
