@@ -91,13 +91,20 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 async def csrf_origin_check(request: Request, call_next):
     if request.method in ("POST", "PUT", "DELETE", "PATCH"):
         origin = request.headers.get("origin")
-        host = request.headers.get("host")
-        if origin and host and urlparse(origin).netloc != host:
-            sec_log.warning(
-                "CSRF blocked | ip=%s path=%s origin=%s host=%s",
-                get_client_ip(request), request.url.path, origin, host,
-            )
-            return PlainTextResponse("CSRF check failed", status_code=403)
+        if origin:
+            origin_host = urlparse(origin).netloc
+            allowed_hosts = {
+                request.headers.get("host"),
+                request.headers.get("x-original-host"),
+                request.headers.get("x-forwarded-host"),
+            }
+            if origin_host not in allowed_hosts:
+                sec_log.warning(
+                    "CSRF blocked | ip=%s path=%s origin=%s host=%s",
+                    get_client_ip(request), request.url.path, origin,
+                    request.headers.get("host"),
+                )
+                return PlainTextResponse("CSRF check failed", status_code=403)
     return await call_next(request)
 
 
