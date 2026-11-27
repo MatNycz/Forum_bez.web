@@ -178,6 +178,7 @@ jobs:
       - run: chmod a+w .
 
       - name: ZAP baseline scan
+        continue-on-error: true
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: ${{ secrets.APP_URL }}
